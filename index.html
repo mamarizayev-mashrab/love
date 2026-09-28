@@ -2,113 +2,111 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8">
-  <!-- Mobil qurilmalar va Android Chrome uchun optimallashgan viewport -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#FFEBF0">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Maxsus Taklif 💌</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FDE9EF">
+  <meta name="color-scheme" content="light">
+  <meta name="format-detection" content="telephone=no">
+  <title>Maxsus taklif 💌</title>
+  <meta name="description" content="Senga atalgan kichik bir romantik taklifnoma ✨">
 
-  <!-- Open Graph / Telegram Preview uchun -->
-  <meta property="og:title" content="Senga maxsus maktub bor... 💌">
-  <meta property="og:description" content="Iltimos, ushbu sahifani ochib ko'r. Bu yerda faqat senga atalgan kichik bir taklif bor ✨">
-  <meta property="og:image" content="cover.svg">
+  <!-- Open Graph / Telegram preview -->
   <meta property="og:type" content="website">
+  <meta property="og:title" content="Senga maxsus maktub bor... 💌">
+  <meta property="og:description" content="Iltimos, ushbu sahifani ochib ko‘r. Bu yerda faqat senga atalgan kichik bir taklif bor ✨">
+  <meta property="og:image" content="cover.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
 
-  <!-- Google Fonts: Zamonaviy va romantik shriftlar -->
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+  <!-- Shriftlar: Playfair Display (sarlavha) + Outfit (matn) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <!-- Fon musiqasi: Adele - Lovesong (20-sekunddan boshlanadi) -->
-  <audio id="bgAudio" src="Adele - Lovesong.mp3" preload="auto" loop playsinline></audio>
+  <audio id="bgAudio" src="lovesong.mp3" preload="metadata" playsinline></audio>
 
-  <!-- Fon uchun nozik ambient nurlar va floating elementlar -->
-  <div class="ambient-glow glow-top"></div>
-  <div class="ambient-glow glow-bottom"></div>
+  <!-- Fon bezaklari -->
+  <div class="ambient-glow glow-top" aria-hidden="true"></div>
+  <div class="ambient-glow glow-bottom" aria-hidden="true"></div>
   <div class="hearts-bg" id="heartsBg" aria-hidden="true"></div>
 
-  <!-- Asosiy Konteyner (Mobil ekranga to'liq moslashgan) -->
   <main class="proposal-container">
-    
-    <!-- Yaxlit Yagona Kartochka (Success-cardsiz, savollar silliq o'zgaradi) -->
-    <div class="proposal-card" id="proposalCard">
-      
-      <!-- Nishoncha (Badge) -->
-      <div class="badge" id="cardBadge">
-        <span class="badge-dot"></span>
-        <span class="badge-text" id="badgeText">1/3 savol ✨</span>
+    <section class="proposal-card" id="proposalCard" aria-labelledby="proposalTitle">
+
+      <div class="badge">
+        <span class="badge-dot" aria-hidden="true"></span>
+        <span class="badge-text" id="badgeText">1/3 savol</span>
       </div>
 
-      <!-- Romantik vizual belgi -->
-      <div class="icon-wrapper" id="iconWrapper">
-        <div class="heart-pulse" id="heartPulse">
-          <svg viewBox="0 0 24 24" class="svg-heart" fill="currentColor">
+      <div class="icon-wrapper" aria-hidden="true">
+        <div class="heart-pulse">
+          <svg viewBox="0 0 24 24" class="svg-heart" fill="currentColor" focusable="false">
             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
           </svg>
         </div>
       </div>
 
-      <!-- Asosiy Savol Matni -->
-      <h1 class="proposal-title" id="proposalTitle">
-        <span id="namePrefix"></span>Birga uchrashuvga chiqamizmi? <span class="sparkle">✨</span>
-      </h1>
-      
-      <!-- Savol izohi -->
+      <h1 class="proposal-title" id="proposalTitle" aria-live="polite">Birga uchrashuvga chiqamizmi? ☕</h1>
+
       <p class="proposal-subtitle" id="proposalSubtitle">
-        Bir piyola qahva ichib, dildan suhbatlashsak degandim...
+        Bir piyola issiq qahva ichib, dildan suhbatlashsak degandim...
       </p>
 
-      <!-- Yakuniy bosqichda shu yerda ochiladigan uchrashuv vaqti chiplari -->
-      <div class="time-options hidden" id="timeOptions">
-        <button type="button" class="time-chip active" data-time="Shu dam olish kunlari ☕">
-          ☕ Shu dam olish kunlari
+      <!-- Yakuniy bosqich: uchrashuv vaqti -->
+      <div class="time-options hidden" id="timeOptions" role="radiogroup" aria-label="Uchrashuv vaqti">
+        <button type="button" class="time-chip active" role="radio" aria-checked="true" data-time="Shu dam olish kunlari ☕">
+          <span class="chip-icon" aria-hidden="true">☕</span>
+          <span>Shu dam olish kunlari</span>
+          <span class="chip-check" aria-hidden="true"></span>
         </button>
-        <button type="button" class="time-chip" data-time="Ertaga kechqurun 🌅">
-          🌅 Ertaga kechqurun
+        <button type="button" class="time-chip" role="radio" aria-checked="false" data-time="Ertaga kechqurun 🌅">
+          <span class="chip-icon" aria-hidden="true">🌅</span>
+          <span>Ertaga kechqurun</span>
+          <span class="chip-check" aria-hidden="true"></span>
         </button>
-        <button type="button" class="time-chip" data-time="O'zing aytgan vaqtda 🌸">
-          🌸 O'zing aytgan paytda
-        </button>
-      </div>
-
-      <!-- Tugmalar maydoni -->
-      <div class="buttons-container" id="buttonsArea">
-        <button id="yesBtn" class="btn btn-yes" type="button">
-          <span class="btn-text" id="yesBtnText">Jon deb, roziman! 🥰</span>
-          <span class="btn-shine"></span>
-        </button>
-
-        <button id="noBtn" class="btn btn-no" type="button">
-          <span class="btn-text" id="noBtnText">Yo'q, vaqtim yo'q 🙈</span>
+        <button type="button" class="time-chip" role="radio" aria-checked="false" data-time="O‘zing aytgan paytda 🌸">
+          <span class="chip-icon" aria-hidden="true">🌸</span>
+          <span>O‘zing aytgan paytda</span>
+          <span class="chip-check" aria-hidden="true"></span>
         </button>
       </div>
 
-      <!-- Yakuniy bosqichda Telegram tugmasi -->
+      <!-- Yakuniy bosqich: Telegram -->
       <div class="response-actions hidden" id="finalActions">
-        <a id="telegramShareBtn" href="#" target="_blank" class="btn btn-telegram">
-          <svg viewBox="0 0 24 24" class="tg-svg" fill="currentColor">
+        <a id="telegramShareBtn" href="https://t.me/" target="_blank" rel="noopener noreferrer" class="btn btn-telegram">
+          <svg viewBox="0 0 24 24" class="tg-svg" fill="currentColor" aria-hidden="true" focusable="false">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
           </svg>
-          <span id="tgBtnLabel">Menga Telegramda yozish 💌</span>
+          <span>Menga Telegramda yozish 💌</span>
         </a>
       </div>
 
-      <!-- Yordamchi nozik izoh -->
-      <div class="card-footer-hint" id="footerHint">
-        <span>Kichik bir tabassum bilan tanla 😊</span>
+      <!-- Javob tugmalari -->
+      <div class="buttons-container" id="buttonsArea">
+        <button id="yesBtn" class="btn btn-yes" type="button">
+          <span class="btn-text" id="yesBtnText">Jon deb, roziman! 🥰</span>
+          <span class="btn-shine" aria-hidden="true"></span>
+        </button>
+        <button id="noBtn" class="btn btn-no" type="button">
+          <span class="btn-text" id="noBtnText">Yo‘q, vaqtim yo‘q 🙈</span>
+        </button>
       </div>
 
-    </div>
-
+      <p class="card-footer-hint" id="footerHint">Kichik bir tabassum bilan tanla 😊</p>
+    </section>
   </main>
 
-  <!-- Bayramona konfetti va suzuvchi yuraklar uchun Canvas -->
-  <canvas id="confettiCanvas"></canvas>
+  <canvas id="confettiCanvas" aria-hidden="true"></canvas>
 
-  <script src="script.js"></script>
+  <script src="script.js" defer></script>
 </body>
 </html>

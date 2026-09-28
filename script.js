@@ -1,473 +1,524 @@
 /**
  * ==========================================================================
- * ROMANTIK WEB-TAKLIF SAHIFASI - ASOSIY SKRIPT
- * Mobile-First, Single-Card Story, Ko'p bosqichli savollar,
- * Qochadigan inkor tugmasi, Adele - Lovesong (20s) avtomatik ijrosi.
+ * ROMANTIK WEB-TAKLIF SAHIFASI — ASOSIY SKRIPT
+ * Ko'p bosqichli savollar, qochadigan inkor tugmasi,
+ * Adele — Lovesong (20-sekunddan), konfetti va Telegram javobi.
  * ==========================================================================
  */
 
-// Ixtiyoriy: O'zingizning Telegram username'ingizni yozsangiz bo'ladi (masalan: 'islom_dev').
-// Foydalanuvchining shaxsiy Telegram lichkasi
+// Javoblar yuboriladigan Telegram profil
 const TELEGRAM_USERNAME = "eskidasturchi";
 
-document.addEventListener("DOMContentLoaded", () => {
-  const proposalCard = document.getElementById("proposalCard");
-  const cardBadge = document.getElementById("cardBadge");
-  const badgeText = document.getElementById("badgeText");
-  const proposalTitle = document.getElementById("proposalTitle");
-  const proposalSubtitle = document.getElementById("proposalSubtitle");
-  const yesBtn = document.getElementById("yesBtn");
-  const yesBtnText = document.getElementById("yesBtnText");
-  const noBtn = document.getElementById("noBtn");
-  const noBtnText = document.getElementById("noBtnText");
-  const timeOptions = document.getElementById("timeOptions");
-  const finalActions = document.getElementById("finalActions");
-  const telegramShareBtn = document.getElementById("telegramShareBtn");
-  const timeChips = document.querySelectorAll(".time-chip");
-  const heartsBg = document.getElementById("heartsBg");
-  const footerHint = document.getElementById("footerHint");
+const AUDIO_START_SECONDS = 20;
+const AUDIO_VOLUME = 0.85;
+const MAX_NAME_LENGTH = 24;
+const MAX_YES_SCALE = 1.12;
+const YES_SCALE_STEP = 0.03;
+const EVADE_COOLDOWN_MS = 220;
+const VIEWPORT_MARGIN = 16;
+const DEFAULT_TIME = "Shu dam olish kunlari ☕";
 
-  let userName = "";
+const QUESTIONS = [
+  {
+    badge: "1/3 savol",
+    title: (name) => (name ? `${name}, birga uchrashuvga chiqamizmi? ☕` : "Birga uchrashuvga chiqamizmi? ☕"),
+    subtitle: "Bir piyola issiq qahva ichib, dildan suhbatlashsak degandim...",
+    yesText: "Jon deb, roziman! 🥰",
+    noText: "Yo‘q, vaqtim yo‘q 🙈",
+    icon: "☕"
+  },
+  {
+    badge: "2/3 savol",
+    title: () => "Qayerda ko‘rishsak senga yoqadi? 🌆",
+    subtitle: "Senga yoqadigan eng shinam va chiroyli maskanni tanlaymiz",
+    yesText: "Sokin qahvaxonada 🍰",
+    noText: "Hech qayerda 🏃",
+    icon: "🌆"
+  },
+  {
+    badge: "3/3 savol",
+    title: () => "Uchrashuvimiz ajoyib o‘tishiga ishonasanmi? ✨",
+    subtitle: "Eng chiroyli lahzalar sen bilan o‘tadigan daqiqalar bo‘ladi...",
+    yesText: "Albatta, kutaman! 🥰",
+    noText: "Yo‘q, ishonmayman 😜",
+    icon: "💖"
+  }
+];
+
+const EVADE_TEXTS = [
+  "Qo‘ling tegmadi-ku 😜",
+  "Qochdim! 💨",
+  "Ushlay olmaysan 🙈",
+  "Faqat rozilik mumkin 🥰",
+  "Baribir «Ha» deysan 😉",
+  "Yana urinib ko‘r 🌸",
+  "Menga yetolmaysan 🏃",
+  "Bunaqasi ketmaydi 🙃",
+  "Xo‘sh, rozimisan? ✨"
+];
+
+/** URL'dan ismni xavfsiz o'qiydi (?name=, ?kimga=, ?ism=). */
+function readPersonalizedName() {
+  const params = new URLSearchParams(window.location.search);
+  const raw = (params.get("name") || params.get("kimga") || params.get("ism") || "")
+    .replace(/[<>{}[\]\\/`"=]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_NAME_LENGTH);
+
+  if (!raw) return "";
+  return raw.charAt(0).toLocaleUpperCase("uz") + raw.slice(1);
+}
+
+function triggerHaptic(pattern) {
+  if (typeof navigator.vibrate !== "function") return;
+  try {
+    navigator.vibrate(pattern);
+  } catch (err) {
+    // Ba'zi brauzerlar tebranishni taqiqlaydi — bu kritik emas
+  }
+}
+
+function restartAnimation(element, className) {
+  element.classList.remove(className);
+  void element.offsetWidth; // reflow — animatsiyani qayta ishga tushirish uchun
+  element.classList.add(className);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const el = {
+    card: document.getElementById("proposalCard"),
+    badgeText: document.getElementById("badgeText"),
+    title: document.getElementById("proposalTitle"),
+    subtitle: document.getElementById("proposalSubtitle"),
+    buttonsArea: document.getElementById("buttonsArea"),
+    yesBtn: document.getElementById("yesBtn"),
+    yesBtnText: document.getElementById("yesBtnText"),
+    noBtn: document.getElementById("noBtn"),
+    noBtnText: document.getElementById("noBtnText"),
+    timeOptions: document.getElementById("timeOptions"),
+    timeChips: Array.from(document.querySelectorAll(".time-chip")),
+    finalActions: document.getElementById("finalActions"),
+    telegramBtn: document.getElementById("telegramShareBtn"),
+    footerHint: document.getElementById("footerHint"),
+    heartsBg: document.getElementById("heartsBg"),
+    audio: document.getElementById("bgAudio"),
+    canvas: document.getElementById("confettiCanvas")
+  };
+
+  const userName = readPersonalizedName();
+  const confetti = createConfetti(el.canvas);
+  const music = createMusic(el.audio);
+
   let currentStep = 0;
   let evasionCount = 0;
-  let yesScale = 1.0;
-  let selectedTime = "Shu dam olish kunlari ☕";
-  const userAnswers = []; // Qizning tanlagan javoblari to'planadigan massiv
+  let yesScale = 1;
+  let lastEvadeAt = 0;
+  let selectedTime = DEFAULT_TIME;
+  let answers = [];
 
-  // --------------------------------------------------------------------------
-  // 0. URL orqali Ismni O'qish (Masalan: ?name=Madina yoki ?kimga=Zilola)
-  // --------------------------------------------------------------------------
-  function checkPersonalizedName() {
-    const params = new URLSearchParams(window.location.search);
-    const rawName = params.get("name") || params.get("kimga") || params.get("ism");
-
-    if (rawName && rawName.trim() !== "") {
-      userName = rawName.trim().charAt(0).toUpperCase() + rawName.trim().slice(1);
-      document.title = `${userName} uchun maxsus taklif 💌`;
-    }
+  if (userName) {
+    document.title = `${userName} uchun maxsus taklif 💌`;
   }
 
-  checkPersonalizedName();
-
-  // --------------------------------------------------------------------------
-  // 1. Savollar Zanjiri (Multi-step Interactive Questions)
-  // --------------------------------------------------------------------------
-  const questions = [
-    {
-      badge: "1/3 savol ✨",
-      title: () => (userName ? `${userName}, birga uchrashuvga chiqamizmi? ☕` : "Birga uchrashuvga chiqamizmi? ☕"),
-      subtitle: "Bir piyola issiq qahva ichib, dildan suhbatlashsak degandim...",
-      yesText: "Jon deb, roziman! 🥰",
-      noText: "Yo'q, vaqtim yo'q 🙈"
-    },
-    {
-      badge: "2/3 savol 🌸",
-      title: () => "Qayerda ko'rishsak senga yoqadi? 🌆",
-      subtitle: "Senga yoqadigan eng shinam va chiroyli maskanni tanlaymiz",
-      yesText: "Sokin qahvaxonada 🍰",
-      noText: "Yo'q, hech qayerga 🏃‍♂️"
-    },
-    {
-      badge: "3/3 savol 💖",
-      title: () => "Uchrashuvimiz ajoyib o'tishiga ishonasanmi? ✨",
-      subtitle: "Eng chiroyli lahzalar sen bilan o'tadigan daqiqalar bo'ladi...",
-      yesText: "Albatta, kutaman! 🥰",
-      noText: "Yo'q, ishonmayman 😜"
-    }
-  ];
-
-  // Inkor tugmasi har safar qochganda chiqadigan quvnoq matnlar
-  const funnyEvadeTexts = [
-    "Qo'ling tegmadi-ku 😜",
-    "Qochdim! 🏃‍♂️💨",
-    "Ushlay olmaysan 🙈",
-    "Faqat rozilik mumkin 🥰",
-    "Baribir 'Ha' deysan 😉",
-    "Yana urinib ko'r 🌸",
-    "Menga yetolmaysan 🏃‍♀️",
-    "Bunaqasi ketmaydi 🙃",
-    "Xo'sh, rozimisan? ✨"
-  ];
-
-  // Savolni yangilash funksiyasi
+  // ------------------------------------------------------------------------
+  // Savollar
+  // ------------------------------------------------------------------------
   function renderQuestion(stepIndex) {
-    const q = questions[stepIndex];
+    const q = QUESTIONS[stepIndex];
     if (!q) return;
 
-    // Silliq animatsiya uchun fade effekti
-    proposalCard.classList.remove("card-content-fade");
-    void proposalCard.offsetWidth; // reflow
-    proposalCard.classList.add("card-content-fade");
-
-    badgeText.textContent = q.badge;
-    proposalTitle.innerHTML = `${q.title()} <span class="sparkle">✨</span>`;
-    proposalSubtitle.textContent = q.subtitle;
-    yesBtnText.textContent = q.yesText;
-    noBtnText.textContent = q.noText;
+    restartAnimation(el.card, "card-content-fade");
+    el.badgeText.textContent = q.badge;
+    el.title.textContent = q.title(userName);
+    el.subtitle.textContent = q.subtitle;
+    el.yesBtnText.textContent = q.yesText;
+    el.noBtnText.textContent = q.noText;
   }
 
-  // Boshlang'ich savolni chiqarish
-  renderQuestion(currentStep);
+  function renderFinalState() {
+    restartAnimation(el.card, "card-content-fade");
+    el.card.classList.add("is-final");
 
-  // --------------------------------------------------------------------------
-  // 2. Fon Musiqasi: Adele - Lovesong (20-sekunddan boshlanadi, to'liq avtomatik)
-  // --------------------------------------------------------------------------
-  const bgAudio = document.getElementById("bgAudio");
-  const START_TIME_SECONDS = 20;
-  let isAudioStarted = false;
+    el.badgeText.textContent = "Kelishdik! 🎉";
+    el.title.textContent = userName
+      ? `${userName}, uchrashuvni belgilaymiz! 🥰`
+      : "Unda uchrashuvni belgilaymiz! 🥰";
+    el.subtitle.textContent = "Qachon ko‘rishamiz? Tanla va menga yoz ✨";
 
-  function playAdeleSong() {
-    if (!bgAudio) return;
+    el.timeOptions.classList.remove("hidden");
+    el.finalActions.classList.remove("hidden");
+    el.yesBtn.classList.add("hidden");
 
-    if (!isAudioStarted || bgAudio.currentTime < START_TIME_SECONDS) {
-      try {
-        bgAudio.currentTime = START_TIME_SECONDS;
-      } catch (err) {}
-      isAudioStarted = true;
-    }
+    resetNoButton();
+    el.noBtnText.textContent = "Yo‘q, bormayman 🤪";
+    el.footerHint.textContent = "Vaqtni tanla va Telegramda jo‘nat 💌";
 
-    bgAudio.volume = 0.85;
-
-    const playPromise = bgAudio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // Brauzer birinchi teginishni kutmoqda
-      });
-    }
+    updateTelegramLink();
+    confetti.burst(120, 5200);
   }
 
-  if (bgAudio) {
-    bgAudio.addEventListener("loadedmetadata", () => {
-      bgAudio.currentTime = START_TIME_SECONDS;
-    });
-
-    playAdeleSong();
-
-    // Brauzerning autoplay cheklovi uchun birinchi teginishda ishga tushirish
-    const startAudioOnFirstInteraction = () => {
-      if (bgAudio.paused) {
-        playAdeleSong();
-      }
-      document.removeEventListener("touchstart", startAudioOnFirstInteraction);
-      document.removeEventListener("click", startAudioOnFirstInteraction);
-      document.removeEventListener("pointerdown", startAudioOnFirstInteraction);
-    };
-
-    document.addEventListener("touchstart", startAudioOnFirstInteraction, { passive: true, once: true });
-    document.addEventListener("click", startAudioOnFirstInteraction, { once: true });
-    document.addEventListener("pointerdown", startAudioOnFirstInteraction, { once: true });
-  }
-
-  // --------------------------------------------------------------------------
-  // 3. Fondagi mayin suzuvchi yurakchalar (Ambient Floating Hearts)
-  // --------------------------------------------------------------------------
-  function createFloatingHearts() {
-    const heartSymbols = ["💖", "🌸", "✨", "💕", "🤍"];
-    const count = 8;
-
-    for (let i = 0; i < count; i++) {
-      const heart = document.createElement("span");
-      heart.className = "floating-heart";
-      heart.innerText = heartSymbols[i % heartSymbols.length];
-      heart.style.left = `${Math.random() * 92}vw`;
-      heart.style.fontSize = `${Math.random() * 12 + 14}px`;
-      heart.style.animationDuration = `${Math.random() * 6 + 9}s`;
-      heart.style.animationDelay = `${Math.random() * 7}s`;
-      heart.style.opacity = (Math.random() * 0.35 + 0.2).toFixed(2);
-      heartsBg.appendChild(heart);
-    }
-  }
-
-  createFloatingHearts();
-
-  // --------------------------------------------------------------------------
-  // 4. "Yo'q" / Inkor Tugmasining Qochish Mantig'i (Smart Evading Algorithm)
-  // --------------------------------------------------------------------------
-  function triggerHaptic(duration = 35) {
-    if ("vibrate" in navigator) {
-      try {
-        navigator.vibrate(duration);
-      } catch (e) {}
-    }
-  }
-
-  function evadeButton(e) {
-    if (e) {
-      if (e.cancelable) e.preventDefault();
-      e.stopPropagation();
-    }
-
-    if (bgAudio && bgAudio.paused) {
-      playAdeleSong();
-    }
-
-    triggerHaptic(40);
-    evasionCount++;
-
-    // Matnni quvnoq o'zgartirish
-    const textIndex = evasionCount % funnyEvadeTexts.length;
-    noBtnText.textContent = funnyEvadeTexts[textIndex];
-
-    // "Ha" tugmasini salgina kattalashtirish
-    if (yesScale < 1.3) {
-      yesScale += 0.05;
-      yesBtn.style.transform = `scale(${yesScale})`;
-    }
-
-    if (!noBtn.classList.contains("is-evading")) {
-      noBtn.classList.add("is-evading");
-    }
-
-    // Xavfsiz chegara koordinatalari
-    const btnRect = noBtn.getBoundingClientRect();
-    const btnWidth = btnRect.width || 120;
-    const btnHeight = btnRect.height || 48;
-
-    const paddingX = 20;
-    const paddingTop = 30;
-    const paddingBottom = 50;
-
-    const maxLeft = window.innerWidth - btnWidth - paddingX;
-    const minLeft = paddingX;
-
-    const maxTop = window.innerHeight - btnHeight - paddingBottom;
-    const minTop = paddingTop;
-
-    const yesRect = yesBtn.getBoundingClientRect();
-
-    let newLeft = 0;
-    let newTop = 0;
-    let attempts = 0;
-    let safePosition = false;
-
-    while (!safePosition && attempts < 25) {
-      attempts++;
-      newLeft = Math.floor(Math.random() * (maxLeft - minLeft + 1)) + minLeft;
-      newTop = Math.floor(Math.random() * (maxTop - minTop + 1)) + minTop;
-
-      const buffer = 30;
-      const overlapsYes = !(
-        newLeft + btnWidth + buffer < yesRect.left ||
-        newLeft > yesRect.right + buffer ||
-        newTop + btnHeight + buffer < yesRect.top ||
-        newTop > yesRect.bottom + buffer
-      );
-
-      if (!overlapsYes) {
-        safePosition = true;
-      }
-    }
-
-    noBtn.style.left = `${newLeft}px`;
-    noBtn.style.top = `${newTop}px`;
-  }
-
-  noBtn.addEventListener("mouseenter", evadeButton);
-  noBtn.addEventListener("pointerdown", evadeButton);
-  noBtn.addEventListener("touchstart", evadeButton, { passive: false });
-  noBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    evadeButton(e);
-  });
-
-  // --------------------------------------------------------------------------
-  // 5. Ijobiy Javob Tugmasi Bosilganda (Next Question or Final Step)
-  // --------------------------------------------------------------------------
-  yesBtn.addEventListener("click", () => {
+  // ------------------------------------------------------------------------
+  // "Ha" tugmasi
+  // ------------------------------------------------------------------------
+  el.yesBtn.addEventListener("click", () => {
     triggerHaptic([60, 40, 80]);
+    music.play();
 
-    if (bgAudio && bgAudio.paused) {
-      playAdeleSong();
-    }
+    const q = QUESTIONS[currentStep];
+    if (!q) return;
 
-    // Tanlangan javobni xotiraga saqlash
-    if (questions[currentStep]) {
-      userAnswers.push({
-        step: currentStep + 1,
-        question: questions[currentStep].title(),
-        answer: yesBtnText.textContent.trim()
-      });
-    }
+    answers = [...answers, { icon: q.icon, answer: q.yesText }];
+    confetti.burst(40, 2200);
+    currentStep += 1;
 
-    // Har bir to'g'ri javobda kichik konfetti nuri
-    triggerMiniBurst();
-
-    currentStep++;
-
-    if (currentStep < questions.length) {
-      // Keyingi savolga o'tish
+    if (currentStep < QUESTIONS.length) {
+      resetNoButton();
       renderQuestion(currentStep);
-
-      // Agar noBtn qochgan bo'lsa, uni yana o'z joyiga sekin qaytarish
-      resetNoButtonPosition();
     } else {
-      // Barcha savollar tugadi -> Yakuniy Bosqich (Shu kartaning o'zida!)
       renderFinalState();
     }
   });
 
-  function resetNoButtonPosition() {
-    noBtn.classList.remove("is-evading");
-    noBtn.style.left = "";
-    noBtn.style.top = "";
-    noBtn.style.transform = "";
-    yesScale = 1.0;
-    yesBtn.style.transform = "scale(1)";
+  // ------------------------------------------------------------------------
+  // Qochadigan "Yo'q" tugmasi
+  // ------------------------------------------------------------------------
+  function setYesScale(value) {
+    yesScale = value;
+    el.yesBtn.style.setProperty("--yes-scale", String(value));
   }
 
-  // --------------------------------------------------------------------------
-  // 6. Yakuniy Holat (Alohida success-cardsiz, shu kartaning o'zida)
-  // --------------------------------------------------------------------------
-  function renderFinalState() {
-    // Silliq fade
-    proposalCard.classList.remove("card-content-fade");
-    void proposalCard.offsetWidth;
-    proposalCard.classList.add("card-content-fade");
-
-    badgeText.textContent = "Kelishdik! 🎉";
-    proposalTitle.innerHTML = `${userName ? userName + ", u" : "U"}chrashuvni belgilaymiz! 🥰`;
-    proposalSubtitle.textContent = "Qachon ko'rishsak ma'qul bo'ladi? Tanla va menga yoz ✨";
-
-    // Vaqt chiplarini va Telegram tugmasini ochish
-    timeOptions.classList.remove("hidden");
-    finalActions.classList.remove("hidden");
-
-    // Ijobiy tugmani yashirib, uning o'rniga Telegram tugmasini asosiy qilish
-    yesBtn.style.display = "none";
-
-    // Inkor tugmasi baribir bu yerda ham qochib yuraveradi!
-    noBtnText.textContent = "Yo'q, bormayman 🤪";
-    resetNoButtonPosition();
-
-    // Pastki izohni yangilash
-    footerHint.textContent = "Uchrashuv vaqtini tanla va Telegramda jo'nat 💌";
-
-    setupTelegramLink(selectedTime);
-
-    // Katta bayramona konfetti va suzuvchi yuraklar
-    startCelebration();
+  function resetNoButton() {
+    const btn = el.noBtn;
+    btn.classList.remove("is-evading");
+    btn.style.left = "";
+    btn.style.top = "";
+    if (btn.parentElement !== el.buttonsArea) {
+      el.buttonsArea.appendChild(btn);
+    }
+    setYesScale(1);
   }
 
-  // Uchrashuv vaqti chiplari
-  timeChips.forEach((chip) => {
+  /** Tugmani <body>ga ko'chiradi — kartadagi backdrop-filter/transform fixed'ni buzmasligi uchun. */
+  function detachNoButton() {
+    const btn = el.noBtn;
+    const rect = btn.getBoundingClientRect();
+    document.body.appendChild(btn);
+    btn.classList.add("is-evading");
+    btn.style.left = `${rect.left}px`;
+    btn.style.top = `${rect.top}px`;
+    void btn.offsetWidth; // boshlang'ich joydan silliq harakatlanishi uchun
+  }
+
+  function getProtectedRects() {
+    const targets = [el.yesBtn, el.telegramBtn, ...el.timeChips];
+    return targets
+      .filter((node) => node.offsetParent !== null)
+      .map((node) => node.getBoundingClientRect());
+  }
+
+  function overlaps(a, b, gap) {
+    return !(
+      a.right + gap < b.left ||
+      a.left > b.right + gap ||
+      a.bottom + gap < b.top ||
+      a.top > b.bottom + gap
+    );
+  }
+
+  function pickEvadePosition(width, height) {
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = window.innerHeight;
+    const minLeft = VIEWPORT_MARGIN;
+    const minTop = VIEWPORT_MARGIN + 8;
+    const maxLeft = Math.max(minLeft, viewportWidth - width - VIEWPORT_MARGIN);
+    const maxTop = Math.max(minTop, viewportHeight - height - VIEWPORT_MARGIN - 8);
+    const current = el.noBtn.getBoundingClientRect();
+    const protectedRects = getProtectedRects();
+
+    let best = { left: minLeft, top: minTop };
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const left = minLeft + Math.random() * (maxLeft - minLeft);
+      const top = minTop + Math.random() * (maxTop - minTop);
+      const candidate = { left, top, right: left + width, bottom: top + height };
+
+      const hitsProtected = protectedRects.some((r) => overlaps(candidate, r, 12));
+      const tooClose = Math.hypot(left - current.left, top - current.top) < 90;
+      best = { left, top };
+      if (!hitsProtected && !tooClose) break;
+    }
+    return best;
+  }
+
+  function evadeButton(event) {
+    if (event && event.cancelable) event.preventDefault();
+
+    const now = Date.now();
+    if (now - lastEvadeAt < EVADE_COOLDOWN_MS) return;
+    lastEvadeAt = now;
+
+    music.play();
+    triggerHaptic(40);
+
+    evasionCount += 1;
+    el.noBtnText.textContent = EVADE_TEXTS[(evasionCount - 1) % EVADE_TEXTS.length];
+
+    if (!el.card.classList.contains("is-final") && yesScale < MAX_YES_SCALE) {
+      setYesScale(Math.min(MAX_YES_SCALE, +(yesScale + YES_SCALE_STEP).toFixed(2)));
+    }
+
+    if (!el.noBtn.classList.contains("is-evading")) {
+      detachNoButton();
+    }
+
+    const { width, height } = el.noBtn.getBoundingClientRect();
+    const { left, top } = pickEvadePosition(width, height);
+    el.noBtn.style.left = `${Math.round(left)}px`;
+    el.noBtn.style.top = `${Math.round(top)}px`;
+  }
+
+  el.noBtn.addEventListener("pointerenter", (e) => {
+    if (e.pointerType === "mouse") evadeButton(e);
+  });
+  el.noBtn.addEventListener("pointerdown", evadeButton);
+  el.noBtn.addEventListener("touchstart", evadeButton, { passive: false });
+  el.noBtn.addEventListener("click", evadeButton);
+
+  // Ekran o'lchami o'zgarsa, qochgan tugma ekran ichida qolsin
+  window.addEventListener("resize", () => {
+    if (!el.noBtn.classList.contains("is-evading")) return;
+    const rect = el.noBtn.getBoundingClientRect();
+    const maxLeft = document.documentElement.clientWidth - rect.width - VIEWPORT_MARGIN;
+    const maxTop = window.innerHeight - rect.height - VIEWPORT_MARGIN;
+    el.noBtn.style.left = `${Math.max(VIEWPORT_MARGIN, Math.min(rect.left, maxLeft))}px`;
+    el.noBtn.style.top = `${Math.max(VIEWPORT_MARGIN, Math.min(rect.top, maxTop))}px`;
+  });
+
+  // ------------------------------------------------------------------------
+  // Uchrashuv vaqti va Telegram
+  // ------------------------------------------------------------------------
+  el.timeChips.forEach((chip) => {
     chip.addEventListener("click", () => {
       triggerHaptic(25);
-      timeChips.forEach((c) => c.classList.remove("active"));
-      chip.classList.add("active");
-      selectedTime = chip.getAttribute("data-time") || chip.innerText.trim();
-      setupTelegramLink(selectedTime);
+      el.timeChips.forEach((c) => {
+        const isActive = c === chip;
+        c.classList.toggle("active", isActive);
+        c.setAttribute("aria-checked", String(isActive));
+      });
+      selectedTime = chip.dataset.time || DEFAULT_TIME;
+      updateTelegramLink();
     });
   });
 
-  // Telegram havola generatori: Tanlangan barcha javoblarni @eskidasturchi ga avtomatik yuborish
-  function setupTelegramLink(timeChoice = "Shu dam olish kunlari ☕") {
-    const greeting = userName ? `Salom! Men ${userName}. Taklifingni qabul qildim 🥰✨` : "Salom! Taklifingni qabul qildim 🥰✨";
+  function updateTelegramLink() {
+    const greeting = userName
+      ? `Salom! Men ${userName}. Taklifingni qabul qildim 🥰✨`
+      : "Salom! Taklifingni qabul qildim 🥰✨";
+    const answersText = answers.length
+      ? `\n\nMening javoblarim:\n${answers.map((a) => `${a.icon} ${a.answer}`).join("\n")}`
+      : "";
+    const message = `${greeting}${answersText}\n📅 Uchrashuv vaqti: ${selectedTime}\n\nTezroq ko‘rishguncha! 💌`;
 
-    let answersText = "";
-    if (userAnswers.length > 0) {
-      answersText = "\n\nMening javoblarim:\n" + userAnswers.map((item, idx) => {
-        const icon = idx === 0 ? "☕" : (idx === 1 ? "🌆" : "💖");
-        return `${icon} ${item.answer}`;
-      }).join("\n");
+    el.telegramBtn.href = `https://t.me/${TELEGRAM_USERNAME}?text=${encodeURIComponent(message)}`;
+  }
+
+  el.telegramBtn.addEventListener("click", () => triggerHaptic(30));
+
+  // ------------------------------------------------------------------------
+  // Fon: suzuvchi yurakchalar
+  // ------------------------------------------------------------------------
+  function createFloatingHearts() {
+    const symbols = ["💖", "🌸", "✨", "💕", "🤍"];
+    const count = window.innerWidth < 480 ? 8 : 12;
+    const fragment = document.createDocumentFragment();
+
+    for (let i = 0; i < count; i += 1) {
+      const heart = document.createElement("span");
+      heart.className = "floating-heart";
+      heart.textContent = symbols[i % symbols.length];
+      heart.style.left = `${4 + (i / count) * 88 + Math.random() * 6}%`;
+      heart.style.fontSize = `${Math.round(Math.random() * 10 + 14)}px`;
+      heart.style.animationDuration = `${(Math.random() * 6 + 10).toFixed(1)}s`;
+      heart.style.animationDelay = `${(-Math.random() * 12).toFixed(1)}s`;
+      heart.style.setProperty("--heart-opacity", (Math.random() * 0.3 + 0.3).toFixed(2));
+      fragment.appendChild(heart);
     }
-
-    const message = `${greeting}${answersText}\n📅 Uchrashuv vaqti: ${timeChoice}\n\nTezroq ko'rishguncha! 💌`;
-
-    const telegramUrl = `https://t.me/${TELEGRAM_USERNAME}?text=${encodeURIComponent(message)}`;
-    telegramShareBtn.href = telegramUrl;
+    el.heartsBg.appendChild(fragment);
   }
 
-  // --------------------------------------------------------------------------
-  // 7. Mini Burst & Full Celebration Canvas
-  // --------------------------------------------------------------------------
-  function triggerMiniBurst() {
-    startCelebration(40, 2200);
+  createFloatingHearts();
+  renderQuestion(currentStep);
+});
+
+// --------------------------------------------------------------------------
+// Musiqa: 20-sekunddan boshlanadi, tugasa yana 20-sekunddan davom etadi
+// --------------------------------------------------------------------------
+function createMusic(audio) {
+  if (!audio) return { play: () => {} };
+
+  let hasStarted = false;
+  let pausedByVisibility = false;
+
+  function seekToStart() {
+    try {
+      audio.currentTime = AUDIO_START_SECONDS;
+    } catch (err) {
+      // Metadata hali yuklanmagan — loadedmetadata'da qayta urinamiz
+    }
   }
 
-  function startCelebration(particleCount = 110, duration = 5500) {
-    const canvas = document.getElementById("confettiCanvas");
-    const ctx = canvas.getContext("2d");
+  function play() {
+    if (!audio.paused) return;
+    if (!hasStarted) {
+      seekToStart();
+      hasStarted = true;
+    }
+    audio.volume = AUDIO_VOLUME;
+    const promise = audio.play();
+    if (promise && typeof promise.catch === "function") {
+      promise.catch(() => {
+        // Autoplay taqiqlangan — birinchi teginishda qayta urinamiz
+        hasStarted = false;
+      });
+    }
+  }
 
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
+  audio.addEventListener("loadedmetadata", () => {
+    if (audio.currentTime < AUDIO_START_SECONDS) seekToStart();
+  });
 
-    const particles = [];
-    const colors = ["#FF2A65", "#FF6B8B", "#FFAAA7", "#FFD3B6", "#FFD700", "#FFFFFF", "#C084FC"];
+  audio.addEventListener("ended", () => {
+    seekToStart();
+    audio.play().catch(() => {});
+  });
 
-    for (let i = 0; i < particleCount; i++) {
+  // Boshqa ilovaga (masalan, Telegramga) o'tilganda musiqa to'xtaydi va qaytganda davom etadi
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && !audio.paused) {
+      audio.pause();
+      pausedByVisibility = true;
+    } else if (!document.hidden && pausedByVisibility) {
+      pausedByVisibility = false;
+      audio.play().catch(() => {});
+    }
+  });
+
+  const unlockEvents = ["pointerdown", "touchstart", "keydown"];
+  const unlock = () => {
+    play();
+    unlockEvents.forEach((type) => document.removeEventListener(type, unlock, true));
+  };
+  unlockEvents.forEach((type) => document.addEventListener(type, unlock, { capture: true, passive: true }));
+
+  play();
+  return { play };
+}
+
+// --------------------------------------------------------------------------
+// Konfetti: bitta umumiy canvas va animatsiya sikli (Retina uchun aniq)
+// --------------------------------------------------------------------------
+function createConfetti(canvas) {
+  const ctx = canvas && canvas.getContext("2d");
+  if (!ctx) return { burst: () => {} };
+
+  const colors = ["#FF2A65", "#FF6B8B", "#FFAAA7", "#FFD3B6", "#FFD700", "#FFFFFF", "#C084FC"];
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let particles = [];
+  let running = false;
+  let width = 0;
+  let height = 0;
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function drawHeart(p) {
+    const s = p.size;
+    const top = s * 0.3;
+    ctx.beginPath();
+    ctx.moveTo(0, top);
+    ctx.bezierCurveTo(0, 0, -s / 2, 0, -s / 2, top);
+    ctx.bezierCurveTo(-s / 2, (s + top) / 2, 0, s, 0, s * 1.2);
+    ctx.bezierCurveTo(0, s, s / 2, (s + top) / 2, s / 2, top);
+    ctx.bezierCurveTo(s / 2, 0, 0, 0, 0, top);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function frame(now) {
+    ctx.clearRect(0, 0, width, height);
+
+    particles = particles.filter((p) => {
+      const age = now - p.born;
+      if (age > p.life || p.y > height + 40) return false;
+
+      p.vy += 0.34;
+      p.vx *= 0.985;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.spin;
+      const fadeStart = p.life * 0.6;
+      const alpha = age < fadeStart ? 1 : Math.max(0, 1 - (age - fadeStart) / (p.life - fadeStart));
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      if (p.isHeart) {
+        drawHeart(p);
+      } else {
+        ctx.fillRect(-p.size / 2, -p.size * 0.3, p.size, p.size * 0.6);
+      }
+      ctx.restore();
+      return true;
+    });
+
+    if (particles.length) {
+      requestAnimationFrame(frame);
+    } else {
+      running = false;
+      ctx.clearRect(0, 0, width, height);
+    }
+  }
+
+  function burst(count, life) {
+    if (reduceMotion) return;
+    if (width !== window.innerWidth || height !== window.innerHeight) resize();
+
+    const now = performance.now();
+    const originX = width / 2;
+    const originY = height * 0.6;
+    const fresh = Array.from({ length: count }, () => {
       const isHeart = Math.random() < 0.35;
-      particles.push({
-        x: width * 0.5 + (Math.random() * 80 - 40),
-        y: height * 0.6,
+      return {
+        x: originX + (Math.random() * 80 - 40),
+        y: originY,
         vx: (Math.random() - 0.5) * 12,
-        vy: -(Math.random() * 14 + 8),
-        gravity: 0.36,
-        friction: 0.98,
+        vy: -(Math.random() * 13 + 8),
         size: isHeart ? Math.random() * 9 + 8 : Math.random() * 7 + 5,
         color: colors[Math.floor(Math.random() * colors.length)],
-        rotation: Math.random() * 360,
-        rotationSpeed: (Math.random() - 0.5) * 10,
-        isHeart: isHeart,
-        opacity: 1
-      });
+        rotation: Math.random() * Math.PI * 2,
+        spin: (Math.random() - 0.5) * 0.18,
+        isHeart,
+        born: now,
+        life: life * (0.8 + Math.random() * 0.2)
+      };
+    });
+
+    particles = [...particles, ...fresh];
+    if (!running) {
+      running = true;
+      requestAnimationFrame(frame);
     }
-
-    function drawHeart(context, x, y, size, color, opacity) {
-      context.save();
-      context.translate(x, y);
-      context.globalAlpha = opacity;
-      context.fillStyle = color;
-      context.beginPath();
-      const topCurveHeight = size * 0.3;
-      context.moveTo(0, topCurveHeight);
-      context.bezierCurveTo(0, 0, -size / 2, 0, -size / 2, topCurveHeight);
-      context.bezierCurveTo(-size / 2, (size + topCurveHeight) / 2, 0, size, 0, size * 1.2);
-      context.bezierCurveTo(0, size, size / 2, (size + topCurveHeight) / 2, size / 2, topCurveHeight);
-      context.bezierCurveTo(size / 2, 0, 0, 0, 0, topCurveHeight);
-      context.closePath();
-      context.fill();
-      context.restore();
-    }
-
-    let startTime = Date.now();
-
-    function render() {
-      const elapsed = Date.now() - startTime;
-      ctx.clearRect(0, 0, width, height);
-
-      particles.forEach((p) => {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += p.gravity;
-        p.vx *= p.friction;
-        p.rotation += p.rotationSpeed;
-
-        if (elapsed > duration * 0.6) {
-          p.opacity -= 0.02;
-        }
-
-        if (p.opacity > 0) {
-          if (p.isHeart) {
-            drawHeart(ctx, p.x, p.y, p.size, p.color, Math.max(p.opacity, 0));
-          } else {
-            ctx.save();
-            ctx.translate(p.x, p.y);
-            ctx.rotate((p.rotation * Math.PI) / 180);
-            ctx.globalAlpha = Math.max(p.opacity, 0);
-            ctx.fillStyle = p.color;
-            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
-            ctx.restore();
-          }
-        }
-      });
-
-      if (elapsed < duration) {
-        requestAnimationFrame(render);
-      } else {
-        ctx.clearRect(0, 0, width, height);
-      }
-    }
-
-    render();
   }
-});
+
+  resize();
+  window.addEventListener("resize", resize);
+  return { burst };
+}

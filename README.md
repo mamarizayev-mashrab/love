@@ -11,7 +11,8 @@ Mobil qurilmalar (ayniqsa **Android Chrome**) uchun optimallashtirilgan, hech qa
 1. **Mobile-First & 100% Ekranga Moslashgan (No Scroll):**
    - Hech qanday alohida success-card yo'q — barcha bosqichlar bitta yaxlit shisha kartochka ichida silliq almashadi.
    - 320px, 360px, 390px, 412px va undan katta barcha Android hamda iPhone ekranlarida vertikal ravishda to'liq va sig'ib ko'rinadi (hech qanday pastga scroll talab qilinmaydi).
-   - Dynamic viewport (`100dvh`) — Android Chrome'da manzil paneli chiqqanda ham sahifa sakramaydi.
+   - Dynamic viewport (`100dvh`) va iPhone notch uchun `safe-area` — manzil paneli chiqqanda ham sahifa sakramaydi.
+   - Juda past ekranlarda (masalan, landscape) kontent kesilmaydi — kerak bo‘lsa sahifa yumshoq scroll bo‘ladi.
 2. **Ko'p Bosqichli Romantik Savollar (Story Flow):**
    - Zerikarli oddiy "Ha" va "Yo'q" emas, balki samimiy va jonli savollar zanjiri:
      1. *"Birga uchrashuvga chiqamizmi? ☕"* -> *"Jon deb, roziman! 🥰"*
@@ -35,12 +36,14 @@ Mobil qurilmalar (ayniqsa **Android Chrome**) uchun optimallashtirilgan, hech qa
 
 | Fayl | Vazifasi |
 | :--- | :--- |
-| **`index.html`** | Sahifaning asosiy tuzilishi, matnlar, Telegram uchun OpenGraph meta teglari va uchrashuv chiplari. |
-| **`style.css`** | Romantik gradientlar, glassmorphism kartochkasi, tugmalar dizayni, silliq elastik animatsiyalar va mobil moslashuv. |
-| **`script.js`** | Qochadigan "Yo'q" tugmasi, ism o'qish, uchrashuv vaqti tanlovi, Web Audio musiqa va konfetti effekti. |
-| **`cover.svg`** | Telegram va ijtimoiy tarmoqlarda link yuborilganda chiqadigan maxsus romantik preview rasmi. |
-| **`vercel.json`** | Loyihani Vercel hostingiga joylaganda toza URL va xavfsizlik sozlamalari to'g'ri ishlashi uchun konfiguratsiya. |
-| **`package.json`** | Loyihani mahalliy muhitda ishga tushirish qulayligi uchun. |
+| **`index.html`** | Sahifa tuzilishi, matnlar, Telegram uchun Open Graph meta teglari va uchrashuv vaqti tanlovi. |
+| **`style.css`** | Glassmorphism kartochka, Playfair Display + Outfit shriftlari, animatsiyalar, 320px dan kompyutergacha moslashuv, safe-area va reduced-motion. |
+| **`script.js`** | Savollar zanjiri, qochadigan "Yo‘q" tugmasi, ismni xavfsiz o‘qish, musiqa, konfetti va Telegram havolasi. |
+| **`lovesong.mp3`** | Fon qo‘shig‘i (Adele — Lovesong), 20-sekunddan boshlanadi va tugagach yana 20-sekunddan davom etadi. |
+| **`cover.png`** | Telegram va ijtimoiy tarmoqlardagi preview rasmi (1200×630). |
+| **`favicon.svg`**, **`apple-touch-icon.png`** | Brauzer va telefon ekranidagi ikonka. |
+| **`vercel.json`** | Toza URL, xavfsizlik sarlavhalari (CSP) va media keshlash sozlamalari. |
+| **`package.json`** | Loyihani lokal ishga tushirish uchun. |
 
 ---
 
