@@ -1,0 +1,13 @@
+{
+  "name": "romantic-date-proposal",
+  "version": "1.0.0",
+  "description": "Romantik, zamonaviy va interaktiv web-taklif sahifasi",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve ."
+  },
+  "keywords": ["proposal", "date", "romantic", "mobile-first"],
+  "author": "Mashrab",
+  "license": "MIT"
+}
