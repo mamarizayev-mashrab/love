@@ -2,11 +2,11 @@
  * ==========================================================================
  * ROMANTIK WEB-TAKLIF SAHIFASI — ASOSIY SKRIPT
  * Ko'p bosqichli savollar, qochadigan inkor tugmasi,
- * Adele — Lovesong (20-sekunddan), konfetti va Telegram javobi.
+ * Adele — Lovesong (20-sekunddan), konfetti va javobni Telegram bot orqali yuborish.
  * ==========================================================================
  */
 
-// Javoblar yuboriladigan Telegram profil
+// Bot ishlamasa, zaxira sifatida ochiladigan Telegram profil
 const TELEGRAM_USERNAME = "eskidasturchi";
 
 const AUDIO_START_SECONDS = 20;
@@ -17,6 +17,9 @@ const YES_SCALE_STEP = 0.03;
 const EVADE_COOLDOWN_MS = 220;
 const VIEWPORT_MARGIN = 16;
 const DEFAULT_TIME = "Shu dam olish kunlari ☕";
+const DEFAULT_TIME_KEY = "weekend";
+const SEND_ENDPOINT = "/api/send";
+const SEND_TIMEOUT_MS = 10000;
 
 const QUESTIONS = [
   {
@@ -99,7 +102,8 @@ document.addEventListener("DOMContentLoaded", () => {
     timeOptions: document.getElementById("timeOptions"),
     timeChips: Array.from(document.querySelectorAll(".time-chip")),
     finalActions: document.getElementById("finalActions"),
-    telegramBtn: document.getElementById("telegramShareBtn"),
+    sendBtn: document.getElementById("sendBtn"),
+    sendBtnLabel: document.getElementById("sendBtnLabel"),
     footerHint: document.getElementById("footerHint"),
     heartsBg: document.getElementById("heartsBg"),
     audio: document.getElementById("bgAudio"),
@@ -115,6 +119,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let yesScale = 1;
   let lastEvadeAt = 0;
   let selectedTime = DEFAULT_TIME;
+  let selectedTimeKey = DEFAULT_TIME_KEY;
+  let isSending = false;
   let answers = [];
 
   if (userName) {
@@ -152,10 +158,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
     resetNoButton();
     el.noBtnText.textContent = "Yo‘q, bormayman 🤪";
-    el.footerHint.textContent = "Vaqtni tanla va Telegramda jo‘nat 💌";
+    el.footerHint.textContent = "Vaqtni tanla va javobingni yubor 💌";
 
-    updateTelegramLink();
     confetti.burst(120, 5200);
+  }
+
+  function renderSentState() {
+    restartAnimation(el.card, "card-content-fade");
+    el.card.classList.add("is-sent");
+
+    el.badgeText.textContent = "Yuborildi ✅";
+    el.title.textContent = "Rahmat! Javobing menga yetib bordi 💌";
+    el.subtitle.textContent = `Uchrashuv vaqti: ${selectedTime}. Tez orada o‘zim yozaman 🥰`;
+
+    el.timeOptions.classList.add("hidden");
+    el.finalActions.classList.add("hidden");
+    resetNoButton();
+    el.noBtn.classList.add("hidden");
+    el.footerHint.textContent = "Uchrashuvgacha! ✨";
+
+    confetti.burst(140, 5600);
   }
 
   // ------------------------------------------------------------------------
@@ -211,7 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getProtectedRects() {
-    const targets = [el.yesBtn, el.telegramBtn, ...el.timeChips];
+    const targets = [el.yesBtn, el.sendBtn, ...el.timeChips];
     return targets
       .filter((node) => node.offsetParent !== null)
       .map((node) => node.getBoundingClientRect());
@@ -306,11 +328,12 @@ document.addEventListener("DOMContentLoaded", () => {
         c.setAttribute("aria-checked", String(isActive));
       });
       selectedTime = chip.dataset.time || DEFAULT_TIME;
-      updateTelegramLink();
+      selectedTimeKey = chip.dataset.timeKey || DEFAULT_TIME_KEY;
     });
   });
 
-  function updateTelegramLink() {
+  /** Bot ishlamay qolsa: xabar tayyor holda Telegram lichkasini ochadi. */
+  function buildFallbackTelegramUrl() {
     const greeting = userName
       ? `Salom! Men ${userName}. Taklifingni qabul qildim 🥰✨`
       : "Salom! Taklifingni qabul qildim 🥰✨";
@@ -318,11 +341,57 @@ document.addEventListener("DOMContentLoaded", () => {
       ? `\n\nMening javoblarim:\n${answers.map((a) => `${a.icon} ${a.answer}`).join("\n")}`
       : "";
     const message = `${greeting}${answersText}\n📅 Uchrashuv vaqti: ${selectedTime}\n\nTezroq ko‘rishguncha! 💌`;
-
-    el.telegramBtn.href = `https://t.me/${TELEGRAM_USERNAME}?text=${encodeURIComponent(message)}`;
+    return `https://t.me/${TELEGRAM_USERNAME}?text=${encodeURIComponent(message)}`;
   }
 
-  el.telegramBtn.addEventListener("click", () => triggerHaptic(30));
+  async function postAnswer() {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
+    try {
+      const response = await fetch(SEND_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: userName, timeKey: selectedTimeKey, evasions: evasionCount }),
+        signal: controller.signal
+      });
+      const result = await response.json().catch(() => null);
+      return Boolean(response.ok && result && result.success);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  el.sendBtn.addEventListener("click", async () => {
+    if (isSending) return;
+    isSending = true;
+    triggerHaptic(30);
+    el.sendBtn.disabled = true;
+    el.sendBtn.classList.add("is-loading");
+    el.sendBtnLabel.textContent = "Yuborilmoqda...";
+
+    let delivered = false;
+    try {
+      delivered = await postAnswer();
+    } catch (err) {
+      delivered = false;
+    }
+
+    if (delivered) {
+      triggerHaptic([60, 40, 80]);
+      renderSentState();
+      return;
+    }
+
+    // Server javob bermadi — xabarni Telegram orqali qo'lda yuborish imkonini beramiz
+    el.sendBtnLabel.textContent = "Telegram ochilmoqda...";
+    window.location.href = buildFallbackTelegramUrl();
+    setTimeout(() => {
+      isSending = false;
+      el.sendBtn.disabled = false;
+      el.sendBtn.classList.remove("is-loading");
+      el.sendBtnLabel.textContent = "Javobni yuborish 💌";
+    }, 1500);
+  });
 
   // ------------------------------------------------------------------------
   // Fon: suzuvchi yurakchalar

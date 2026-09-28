@@ -42,6 +42,8 @@ Mobil qurilmalar (ayniqsa **Android Chrome**) uchun optimallashtirilgan, hech qa
 | **`lovesong.mp3`** | Fon qo‘shig‘i (Adele — Lovesong), 20-sekunddan boshlanadi va tugagach yana 20-sekunddan davom etadi. |
 | **`cover.png`** | Telegram va ijtimoiy tarmoqlardagi preview rasmi (1200×630). |
 | **`favicon.svg`**, **`apple-touch-icon.png`** | Brauzer va telefon ekranidagi ikonka. |
+| **`api/send.js`** | Javobni Telegram bot orqali yuboruvchi server funksiyasi (validatsiya, rate limit). |
+| **`tests/`** | API testlari: `npm test`. |
 | **`vercel.json`** | Toza URL, xavfsizlik sarlavhalari (CSP) va media keshlash sozlamalari. |
 | **`package.json`** | Loyihani lokal ishga tushirish uchun. |
 
@@ -49,21 +51,33 @@ Mobil qurilmalar (ayniqsa **Android Chrome**) uchun optimallashtirilgan, hech qa
 
 ## 🛠 Sozlash (Telegram Username & Shaxsiy Havola)
 
-### 1. Telegram profilingiz ulandi:
-Loyihangizga sizning shaxsiy Telegram profilingiz (**[@eskidasturchi](https://t.me/eskidasturchi)**) to'liq ulab qo'yildi!
-Qiz saytda savollarga javob berib, uchrashuv vaqtini tanlab **"Menga Telegramda yozish 💌"** tugmasini bosganida, to'g'ridan-to'g'ri sizning lichkangiz ochiladi va u tanlagan barcha javoblar tayyor xabar bo'lib tushadi:
+### 1. Javob avtomatik yuboriladi (Telegram bot)
+Qiz vaqtni tanlab **"Javobni yuborish 💌"** tugmasini bosganda, javob **bot orqali to‘g‘ridan-to‘g‘ri sizga keladi** — u Telegramni ochib "Send" bosishi shart emas. Kelgan xabar:
 
 ```text
-Salom! Taklifingni qabul qildim 🥰✨
+💌 Taklifingga javob keldi!
 
-Mening javoblarim:
-☕ Jon deb, roziman! 🥰
-🌆 Sokin qahvaxonada 🍰
-💖 Albatta, kutaman! 🥰
-📅 Uchrashuv vaqti: Shu dam olish kunlari ☕
+👤 Kimdan: Madina
+☕ Uchrashuvga: Jon deb, roziman! 🥰
+🌆 Joy: Sokin qahvaxonada 🍰
+💖 Ishonch: Albatta, kutaman! 🥰
+📅 Uchrashuv vaqti: Ertaga kechqurun 🌅
+🏃 «Yo‘q» tugmasini 7 marta quvladi 😄
 
-Tezroq ko'rishguncha! 💌
+🕒 28.09.2026, 22:11 (Toshkent)
 ```
+
+**Bir martalik sozlash (5 daqiqa):**
+1. Telegramda [@BotFather](https://t.me/BotFather) ga `/newbot` yozing, bot nomini bering — u sizga **token** beradi.
+2. O‘zingiz yaratgan botni oching va **Start** (`/start`) bosing — busiz bot sizga yoza olmaydi.
+3. [@userinfobot](https://t.me/userinfobot) ga istalgan xabar yozing — u sizning **ID** raqamingizni beradi (bu `TELEGRAM_CHAT_ID`).
+4. [vercel.com](https://vercel.com) → loyiha → **Settings → Environment Variables** ga qo‘shing:
+   - `TELEGRAM_BOT_TOKEN` = BotFather bergan token
+   - `TELEGRAM_CHAT_ID` = sizning ID raqamingiz
+5. **Deployments → Redeploy** bosing (o‘zgaruvchilar faqat yangi deploy'da kuchga kiradi).
+
+> Token hech qachon sayt kodida turmaydi — u faqat serverda (`api/send.js`) ishlatiladi.
+> Agar bot sozlanmagan yoki ishlamay qolsa, sayt avtomatik ravishda eski usulga o‘tadi: [@eskidasturchi](https://t.me/eskidasturchi) lichkasini tayyor xabar bilan ochadi.
 
 ### 2. Ism bilan yuborish siri (Shaxsiy Taklif):
 Saytingizni Vercel'ga deploy qilgach, unga `?name=Ism` qo'shib yuborishingiz mumkin:

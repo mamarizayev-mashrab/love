@@ -484,6 +484,20 @@ button {
   transform: scale(0.97);
 }
 
+.btn-telegram:disabled {
+  cursor: progress;
+  opacity: 0.85;
+}
+
+.btn-telegram.is-loading .tg-svg {
+  animation: sendPulse 0.9s ease-in-out infinite;
+}
+
+@keyframes sendPulse {
+  0%, 100% { transform: translateX(0) rotate(0deg); opacity: 1; }
+  50%      { transform: translateX(4px) rotate(-12deg); opacity: 0.6; }
+}
+
 .tg-svg {
   width: 22px;
   height: 22px;
@@ -591,7 +605,7 @@ button {
 }
 
 @media (max-height: 740px) {
-  .is-final .icon-wrapper {
+  .is-final:not(.is-sent) .icon-wrapper {
     display: none;
   }
 }
